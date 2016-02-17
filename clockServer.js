@@ -16,21 +16,6 @@ server.use(restify.CORS());
 server.use(restify.fullResponse());
 restify.CORS.ALLOW_HEADERS.push('authorization');
 
-// URL pathes list
-server.get('/raw/:command', raw);
-server.get('/brightness/:value', setBrightness);
-server.get('/mode/:mode', setMode);
-server.get('/preset/:preset', setPreset);
-server.get('/color/:r/:g/:b', setColor);
-server.get('/color2/:r/:g/:b', setColor2);
-server.get('/backgroundColor/:r/:g/:b', setBackgroundColor);
-server.get('/text/:content/:repetition/:title', setText);
-server.get('/text/:content/:repetition', setText);
-server.get('/text/:content', setText);
-server.get('/animate/:animation', animate);
-server.get('/countdown/:min', countdown);
-server.get('/help/', help);
-
 function help(req, res, next)
 {
     res.contentType = 'json';
@@ -54,17 +39,12 @@ function sendCommand()
         console.log(err);
         console.log("command failed");
     }
+    return command;
 }
 
 function raw(req, res, next) {
-    res.send("'"+req.params.command+"' sent");
     sendCommand(req.params.command)
     next();
-}
-
-function isInt(value) {
-    var x = parseFloat(value);
-    return !isNaN(value) && (x | 0) === x;
 }
 
 function isDefined(param)
@@ -72,54 +52,145 @@ function isDefined(param)
     return typeof(param) != "undefined";
 }
 
+function Pass(item)
+{
+    this.item = item;
+}
+
+function Fail(item, msg){
+    this.item = item;
+    this.msg = msg;
+}
+
+function ValidationSummary(x, y){
+    this.pass = [];
+    this.fail = [];
+     
+    if (isDefined(x))
+    {
+        this.pass = x;
+    }
+    if (isDefined(y))
+    {
+        this.pass = y;
+    }
+
+    this.isValid = function()
+    {
+        return this.fail.length == 0;
+    }
+
+    this.formatErrors = function()
+    {
+        var msg = this.fail.reduce(
+                function (a,b){
+                    if (a!=null){
+                        return a.msg + b.msg;
+                    }
+                    else {
+                        return b.msg;
+                    }
+                },null);
+        return msg;
+    }
+}
+
+function merge(precedent, current)
+{
+    var validationSummary;
+    if (precedent == null)
+    {
+        validationSummary = new ValidationSummary()
+    }
+    else {
+        validationSummary = precedent;
+    }
+    if (current instanceof Pass){
+        validationSummary.pass = validationSummary.pass.concat(current);
+    }
+    else if (current instanceof Fail)
+    {
+        validationSummary.fail = validationSummary.fail.concat(current);
+    }
+    else if (current instanceof ValidationSummary)
+    {
+        validationSummary.pass = validationSummary.pass.concat(current.pass);
+        validationSummary.fail = validationSummary.fail.concat(current.fail);
+    }
+    else {
+        throw "invalid merge parameter";
+    }
+    return validationSummary;
+}
+
+function validateValue(valueAndRules)
+{
+    var value = valueAndRules[0];
+    var rules = valueAndRules[1];
+    if (rules.length > 0)
+    {
+        var map = rules.map(function(rule) {
+            return rule.apply(rule, [value])
+        });
+        return map.reduce(merge, null);
+    }
+    return new ValidationSummary([new Pass(value)]);
+}
+
+function validateValues(valuesAndRules)
+{
+    return valuesAndRules.map(validateValue).reduce(merge, null);
+}
+
+function isInt(value) {
+    var x = parseFloat(value);
+    return !isNaN(value) && (x | 0) === x;
+}
+
 function checkIfValueInColorRange(value)
 {
     if (!isInt(value) || value <0 || value > 255){
-        return new Error(value+" should be an integer between 0 and 255");
+        return new Fail(value, value+" should be an integer between 0 and 255");
     }
-    return null;
+    return new Pass(value);
 }
 
 function checkIfIntegerValue(value)
 {
     if (!isInt(value)) {
-        return new Error("In case you don't know, "+value+" is not an integer");
+        return new Fail(value, "In case you don't know, "+value+" is not an integer");
     }
-    return null;
+    return new Pass(value);
 }
 
 function initClockSettings(){
     sendCommand("color",80,80,200);
 }
 
-function setBrightness(req, res, next) {
-    var value = req.params.value;
-
-    var error = checkIfIntegerValue(value);
-
-    if (error == null){
-        sendCommand("bright", value)
-        res.send("Brightness set to "+value);
-        return next();
-    }
-    return next(error);
-}
-
-function setMode(req, res, next) {
-    var mode = req.params.mode;
-    var error = checkIfIntegerValue(mode);
-    if (error == null){
-        sendCommand("mode", mode)
-        res.send("Mode set to "+mode);
-        return next();
-    }
-    return next(error);
+function restToLed(command, valuesNamesAndRules)
+{
+    return function(req,res,next){
+        valuesAndRules = valuesNamesAndRules.map(function(valueNameAndRules){
+            return [req.params[valueNameAndRules[0]],valueNameAndRules[1]];
+        });
+        var validation = validateValues(valuesAndRules);
+        if (validation.isValid()){
+            res.send(
+                sendCommand.apply(sendCommand, [command].concat(valuesAndRules.map(
+                    function(valueAndRules){
+                        return valueAndRules[0]
+                    })))
+                );
+            return next();
+        }
+        return next(new Error(validation.formatErrors()));
+    };
 }
 
 function setPreset(req, res, next) {
     var preset = req.params.preset;
-    var error = checkIfIntegerValue(preset);
-    if (error == null) {
+    var validation = validateValue([preset, [checkIfIntegerValue]] );
+    if (validation.isValid()){
         res.send("Preset set to "+preset);
         if (preset == 1) 
         {
@@ -137,120 +208,38 @@ function setPreset(req, res, next) {
         }
         return next();
     }
-    return next(error);
+    return next(new Error(validation.formatErrors()));
 }
 
-function animate(req, res, next) {
-    var animation = req.params.animation;
-    sendCommand("animate", animation);
-    res.send("animate : "+animation);
-    next();
-}
-
-function countdown(req, res, next) {
-    var min = req.params.min;
-    sendCommand("countdown", min);
-    res.send("countdown : "+min);
-    next();
-}
-
-function setColor(req, res, next) {
-    var r = req.params.r;
-    var g = req.params.g;
-    var b = req.params.b;
-
-    var error = checkIfValueInColorRange(r);
-    if (error == null){
-        error = checkIfValueInColorRange(g);
-    }
-    if (error == null){
-        error = checkIfValueInColorRange(b);
-    }
-
-    if (error == null){
-        sendCommand("color",r,g,b);
-        res.send("Color set to rgb("+r
-                 +","+g
-                 +","+b+")")
-        return next();
-    }
-    else return next(error);
-}
-
-function setColor2(req, res, next) {
-    var r = req.params.r;
-    var g = req.params.g;
-    var b = req.params.b;
-
-    var error = checkIfValueInColorRange(r);
-    if (error == null){
-        error = checkIfValueInColorRange(g);
-    }
-    if (error == null){
-        error = checkIfValueInColorRange(b);
-    }
-
-    if (error == null){
-        sendCommand("color2",r,g,b);
-        res.send("Color2 set to rgb("+r
-                 +","+g
-                 +","+b+")")
-        return next();
-    }
-    return next(error);
-}
-
-function setBackgroundColor(req, res, next) {
-    var r = req.params.r;
-    var g = req.params.g;
-    var b = req.params.b;
-    var error = checkIfValueInColorRange(r);
-    if (error == null){
-        error = checkIfValueInColorRange(g);
-    }
-    if (error == null){
-        error = checkIfValueInColorRange(b);
-    }
-
-    if (error == null){
-        sendCommand("backgroundColor",r,g,b)
-        res.send("BackgroundColor set to rgb("+r
-                 +","+g
-                 +","+b+")")
-        return next();
-    }
-    return next(error);
-}
-
-function setText(req, res, next) {
-    var error = null;
-    if (isDefined(req.params.repetition))
-    {
-        error = checkIfIntegerValue(req.params.repetition);
-    }
-    if (error == null){
-        var nbRepetition = 1;
-        if (isDefined(req.params.repetition)) {
-            nbRepetition = req.params.repetition;
-        }
-        if (nbRepetition > 5)
-        {
-            nbRepetition = 5;
-        }
-        var content = req.params.content;
-        content = cleanText(content);
-        if (isDefined(req.params.title)) {
-            sendCommand("text",content,nbRepetition,req.params.title);
-        }
-        else {
-            sendCommand("text",content,nbRepetition);
-        }
-        res.send("Text '"+req.params.content+"' will repeat "
-                 +nbRepetition+" times");
-        return next();
-    }
-    return next(error);
-}
+// URL pathes list
+server.get('/raw/:command', raw);
+server.get('/brightness/:value', restToLed("bright",[["value",[checkIfIntegerValue]]]));
+server.get('/mode/:mode', restToLed("mode",[["mode",[checkIfIntegerValue]]]));
+server.get('/preset/:preset', setPreset);
+server.get('/color/:r/:g/:b', restToLed("color", [
+            ["r", [checkIfValueInColorRange]],
+            ["g", [checkIfValueInColorRange]],
+            ["b", [checkIfValueInColorRange]]]));
+server.get('/color2/:r/:g/:b', restToLed("color2", [
+            ["r", [checkIfValueInColorRange]],
+            ["g", [checkIfValueInColorRange]],
+            ["b", [checkIfValueInColorRange]]]));
+server.get('/backgroundColor/:r/:g/:b', restToLed("backgroundColor", [
+            ["r", [checkIfValueInColorRange]],
+            ["g", [checkIfValueInColorRange]],
+            ["b", [checkIfValueInColorRange]]]));
+server.get('/text/:content/:repetition/:title', restToLed("text",[
+            ["content", []],
+            ["repetition", [checkIfIntegerValue]],
+            ["title", []]]));
+server.get('/text/:content/:repetition', restToLed("text",[
+            ["content", []],
+            ["repetition", [checkIfIntegerValue]]]));
+server.get('/text/:content', restToLed("text",[
+            ["content", []]]));
+server.get('/animate/:animation', restToLed("animate",[["animation",[]]]));
+server.get('/countdown/:min', restToLed("countdown",[["min",[checkIfIntegerValue]]]));
+server.get('/help/', help);
 
 server.listen(8080, function(){
     console.log('server listening…');
