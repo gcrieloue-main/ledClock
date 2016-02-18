@@ -1,11 +1,24 @@
 # LedClockServer
 
-work in progress…
+Features :
+* display clock on LED display
+* listen REST commands
 
-Launch a "clock" server which :
-* display clock
-* listen REST commands to display (temporary) animations and  messages
-* go back to clock, once the message/animation is over, after a delay 
+REST api :
+* /raw/:command
+* /brightness/:value
+* /mode/:mode
+* /preset/:preset
+* /color/:r/:g/:b
+* /color2/:r/:g/:b
+* /backgroundColor/:r/:g/:b
+* /text/:content/:repetition/:title
+* /text/:content/:repetition
+* /text/:content
+* /animate/:animation
+* /countdown/:min
+* /help/
+
 
 Destination Hardware : 
 * Raspberry pi (2)
