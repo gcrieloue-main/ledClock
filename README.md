@@ -11,4 +11,4 @@ Destination Hardware : 
 * Raspberry pi (2)
 * Adafruit 16*32 LED display
 
-![General project architecture](https://hellsdark.github.com/images/ledClockArchitecture.png)
+![General project architecture](https://raw.githubusercontent.com/hellsdark/ledClock/master/images/ledClockArchitecture.png)
