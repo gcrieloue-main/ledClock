@@ -1,15 +1,7 @@
+//var config = require('./config.json');
 var restify = require('restify');
 var ledMatrix = require('./ledMatrix.js')
-var Twit = require ('twit')
 var server = restify.createServer();
-
-var currentWatchedTag = 'Hue'
-var T = new Twit({
-    consumer_key:         'a2iW2Jax85cfYuouCdnDeIZ6u'
-    , consumer_secret:      'bDv23WRDAoUHWZZ1LGD7OMGxQ04BhrQlnv2uuOX5AB67jz7jGa'
-    , access_token:         '19644765-F47N3C07M7sDVhE3r5tAwwDxXdvhpYEgTB9HJACAy'
-    , access_token_secret:  'Ls28b9ixAp0xG5dDclqiR0onHljbOEOEZYyd9iUNJj9LS'
-})
 
 // enable CORS for cross domain queries
 server.use(restify.CORS());
@@ -243,35 +235,6 @@ server.get('/help/', help);
 
 server.listen(8080, function(){
     console.log('server listening…');
-});
-
-var cleanText = function(tweet)
-{
-    var urlRegex =/(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
-    var cleanString = tweet.replace(urlRegex,'');
-    cleanString = cleanString.replace(/[^a-z0-9^_°àáâãäåçèéêëìíîïðòóôõöùúûüýÿ@#\.\(\)\[\]\"\'\-,;\/!\? ]/gi,'').replace(/[\n\r]/g, ' ');
-    return cleanString;
-};
-
-var stream = T.stream('statuses/filter', { follow: ['57732899','901963182'] })
-
-stream.on('tweet', function (tweet) {
-    if ((typeof(tweet.retweeted_status) == 'undefined') 
-        && (tweet.in_reply_to_user_id == null)) // neither retweet nor reply
-    {
-        var tweetToDisplay = cleanText(tweet.text);
-        console.log(tweet.text);
-        if (!!tweetToDisplay)
-        {
-            sendCommand('text',tweetToDisplay,1, "TWEET");
-        }
-    }
-});
-
-stream.on('error', function (err) {
-    console.log(err);
-    sendCommand("text:Error "+err.message+":3");
-    stream.stop();
 });
 
 initClockSettings();
