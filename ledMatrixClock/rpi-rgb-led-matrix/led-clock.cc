@@ -22,14 +22,6 @@
 #include <thread>
 
 using namespace rgb_matrix;
-/*
-class Point {
-    public :
-        Point(int x,int y)_x(x),_y(y){}
-
-        int _x;
-        int _y;
-};*/
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
@@ -46,10 +38,10 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
-void* commandListenerThread(void* vector)
+void* commandListenerThread(void* queue)
 {
-    std::vector<std::string>* myVector = (std::vector<std::string>*)vector;
-    CommandListener* commandListener = new CommandListener(*myVector);
+    std::queue<std::string>* myQueue = (std::queue<std::string>*)queue;
+    CommandListener* commandListener = new CommandListener(*myQueue);
     commandListener->startSocket(); 
     pthread_exit(NULL);
 }
@@ -58,7 +50,7 @@ class LedClock
 {
     public :
     LedClock();
-    std::vector<std::string> myVector;
+    std::queue<std::string> myQueue;
     void display();
 
     private:
@@ -75,7 +67,7 @@ class LedClock
     void loadFonts();
     void clear();
     
-     void checkAndTriggerHourAnimate();
+    void checkAndTriggerHourAnimate();
    
     void scrollText(const char* text, const char* title);
     std::string pop_front(std::vector<std::string>& vec);
@@ -142,7 +134,7 @@ int main(int argc, char *argv[]) {
     LedClock clock;
     pthread_t thread;
 
-    if(pthread_create(&thread, NULL, commandListenerThread, &(clock.myVector)) == -1) {
+    if(pthread_create(&thread, NULL, commandListenerThread, &(clock.myQueue)) == -1) {
         perror("pthread_create");
         std::cout<<"busy socket"<<std::endl;
     }
@@ -166,34 +158,38 @@ void LedClock::loadFonts()
 void LedClock::display()
 {
     try {
-    initClock();
-    while (1)
-    {
-        handleCommands();
-        displayClock();
-        sleep(0.2);
-    }
-
-    // Finished. Shut down the RGB matrix.
-    delete canvas;
-    
-        }
-        catch (const std::exception& e)
+        initClock();
+        while (1)
         {
-            std::cerr << e.what(); 
+            handleCommands();
+            displayClock();
         }
+
+        // Finished. Shut down the RGB matrix.
+        delete canvas;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << e.what(); 
+    }
 }
 
 
 void LedClock::handleCommand()
 {
-    std::string text = pop_front(myVector);
+    if (myQueue.empty())
+    {
+        return;
+    }
+    std::string text = myQueue.front();
+    myQueue.pop();
     clear();
-    std::cout<<"handleCommand : "<<text<<std::endl;
+    std::cout<<text<<std::endl;
     if (text.find(":")!=std::string::npos)
     {
         std::vector<std::string> sp = split(text, ':');
-        currentCommand =sp;
+        
+        currentCommand = sp;
         if (sp.front()=="bright")
         {
             int brightness = atoi(sp.at(1).c_str());
@@ -245,34 +241,34 @@ void LedClock::handleCommand()
 
 void LedClock::handleCommandCountdown(){
     int min = atoi(currentCommand.at(1).c_str());
-        canvasAnimator->animateCountdown(min);
-        clear();
+    canvasAnimator->animateCountdown(min);
+    clear();
 }
 
 void LedClock::handleCommandAnimate()
 {
-    const char* content = currentCommand.at(1).c_str();
-    if (strcmp(content,"randomize")==0)
+    std::string content = currentCommand.at(1);
+    if (content == "randomize")
     {
         canvasAnimator->randomizeAnimate();
         clear();
     }
-    else if (strcmp(content,"spirale")==0)
+    else if (content=="spirale")
     {
         canvasAnimator->spiraleAnimate();
         clear();
     }
-    else if(strcmp(content,"oscillo")==0)
+    else if(content=="oscillo")
     {
         canvasAnimator->animateOscillo();
         clear();
     }
-    else if(strcmp(content,"rain")==0)
+    else if(content=="rain")
     {
         canvasAnimator->animateRain();
         clear();
     }
-    else if(strcmp(content,"colors")==0)
+    else if(content=="colors")
     {
         canvasAnimator->animateColors();
         clear();
@@ -311,8 +307,12 @@ void LedClock::handleCommandBackgroundColor()
 
 void LedClock::handleCommandText()
 {
-    const char* content = currentCommand.at(1).c_str();
-    int repetition = atoi(currentCommand.at(2).c_str());
+    std::string content = currentCommand.at(1);
+    int repetition = 1;
+    if (currentCommand.size()>2)
+    {
+        repetition = atoi(currentCommand.at(2).c_str());
+    }
     const char* title = NULL;
     if (currentCommand.size() > 3)
     {
@@ -320,7 +320,7 @@ void LedClock::handleCommandText()
     }
     for (int i=0;i<repetition;i++)
     {
-        scrollText(content, title);
+        scrollText(content.c_str(), title);
     }
 }
 
@@ -363,7 +363,7 @@ void LedClock::displayClock()
 void LedClock::handleCommands()
 {
     redraw = false;
-    while (!myVector.empty())
+    while (!myQueue.empty())
     {
         try
         {

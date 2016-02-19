@@ -8,24 +8,22 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <iostream>
-#include <vector>
+#include <queue>
 #include <pthread.h>
 
 class CommandListener
 {
     public:
-    CommandListener(std::vector<std::string>& vector);
+    CommandListener(std::queue<std::string>& queue);
 
     void doprocessing (int sock);
 
     void startSocket();
     
-    void* commandListenerThread(void* vector);
+    void* commandListenerThread(void* queue);
 
-    std::string pop_front(std::vector<std::string>& vec);
-    
     private:
-    std::vector<std::string>& _vector;
+    std::queue<std::string>& _queue;
 };
 
 #endif

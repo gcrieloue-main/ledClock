@@ -1,6 +1,6 @@
 #include "socket.h"
 
-CommandListener::CommandListener(std::vector<std::string>& vector):_vector(vector)
+CommandListener::CommandListener(std::queue<std::string>& queue):_queue(queue)
 {
 }
 
@@ -26,9 +26,8 @@ void CommandListener::doprocessing (int sock)
             break;
         }
 
-        //n = write(sock,"I got your message",18);
         std::string str(buffer);
-        _vector.push_back(str);
+        _queue.push(str);
 
         if (n < 0)
         {
