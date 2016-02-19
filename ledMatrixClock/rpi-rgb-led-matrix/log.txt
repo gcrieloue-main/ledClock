@@ -1,2 +1,0 @@
-g++ -Iinclude -Wall -O3 -g -c -o led-clock.o led-clock.cc
-Makefile:29: recipe for target 'led-clock.o' failed
