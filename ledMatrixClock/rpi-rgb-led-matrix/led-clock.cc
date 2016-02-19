@@ -97,6 +97,7 @@ class LedClock
     std::vector<std::string> currentCommand;
     CanvasAnimator* canvasAnimator;
     CanvasConfig* canvasConfig;
+    FrameCanvas* frame;
 };
 
 LedClock::LedClock(): 
@@ -128,6 +129,8 @@ rows(16),chain(1),parallel(1),mode(0)
         canvas->SetPWMBits(1);
 
     loadFonts();
+
+    frame = canvas->CreateFrameCanvas();
 }
 
 int main(int argc, char *argv[]) {
@@ -230,12 +233,12 @@ void LedClock::handleCommand()
         {
             rgb_matrix::DrawText(canvas, canvasConfig->font, x, y + canvasConfig->font.baseline(), canvasConfig->color, text.c_str());
             sleep(2);
+            clear();
         }
         else
         {
             scrollText(text.c_str(), NULL);
         }
-        clear();
     }
 }
 
@@ -399,7 +402,6 @@ void LedClock::clear()
 void LedClock::drawClock()
 {
     Color color = canvasConfig->color;
-    Color color2 = canvasConfig->color2;
     
     clear();
     if (mode == 0)
@@ -558,7 +560,8 @@ void LedClock::scrollText(const char* text, const char* title)
     int pixelLength = len * canvasConfig->font.CharacterWidth('X')+32;
     clear();
     for (int i=0;i<pixelLength;i++) {
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         if (title != NULL)
         {
             rgb_matrix::DrawText(frame, canvasConfig->clock_font, 0, 1+canvasConfig->clock_font.baseline(), color2, title);
@@ -568,7 +571,7 @@ void LedClock::scrollText(const char* text, const char* title)
         {
             rgb_matrix::DrawText(frame, canvasConfig->font, 32-i, 4+canvasConfig->font.baseline(), color, text);
         }
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(30*1000);
     }
     clear();

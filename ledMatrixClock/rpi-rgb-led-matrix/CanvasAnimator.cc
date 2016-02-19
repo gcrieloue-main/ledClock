@@ -2,7 +2,7 @@
 
 CanvasAnimator::CanvasAnimator(RGBMatrix* c, CanvasConfig* cc):canvas(c),canvasConfig(cc)
 {
-
+    frame = canvas->CreateFrameCanvas();
 }
 
 void CanvasAnimator::spiraleAnimate()
@@ -34,7 +34,8 @@ void CanvasAnimator::randomizeAnimate()
     clear();
     for (int i=0;i<duration;i++)
     {
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         for (int x=0;x<nbPoints;x++)
         {
             for (int y=0;y<16;y++)
@@ -45,7 +46,7 @@ void CanvasAnimator::randomizeAnimate()
                         (canvasConfig->color).b);
             }
         }
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(delay);
     }
     clear();
@@ -204,9 +205,10 @@ void CanvasAnimator::animateColors()
         int r = rand()%255;
         int g = rand()%255;
         int b = rand()%255;
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         frame->Fill(r, g, b);
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(200*1000);
     }
 }
@@ -217,12 +219,13 @@ void CanvasAnimator::animateOscillo()
 
     for (int t=0;t<50;t++)
     {
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         for (int x=0;x<32;x+=2)
         {
             drawOscillo(frame,x,rand()%16+2);
         }
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(80*1000);
     }
 }
@@ -271,7 +274,8 @@ void CanvasAnimator::animateRain()
 
     while(!isRainOver(waterDrops))
     {
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         for (auto & element : waterDrops) {
             frame->SetPixel(element[0],element[1]-11,0,0,80);
             frame->SetPixel(element[0],element[1]-10,0,0,80);
@@ -287,7 +291,7 @@ void CanvasAnimator::animateRain()
             frame->SetPixel(element[0],element[1],0,0,255);
             element[1]++;
         }
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(30*1000);
     }
 
@@ -311,10 +315,11 @@ void CanvasAnimator::animateCountdown(int min){
     lt->tm_sec = 0;
     while (lt->tm_min > 0 || lt->tm_sec > 0)
     {
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         sprintf(date, "%02d:%02d", lt->tm_min, lt->tm_sec);
         rgb_matrix::DrawText(frame, canvasConfig->font, 1, 4+canvasConfig->font.baseline(), canvasConfig->color, date);
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(1000*1000);
         if (lt->tm_sec>0)
         {
@@ -328,9 +333,10 @@ void CanvasAnimator::animateCountdown(int min){
     }
     for (int i=0;i<5;i++)
     {
-        FrameCanvas* frame = canvas->CreateFrameCanvas();
+        canvas->transformer()->Transform(frame)->Clear();
+        frame->SetBrightness(canvas->brightness());
         rgb_matrix::DrawText(frame, canvasConfig->font, 1, 4+canvasConfig->font.baseline(), Color(255,0,0), "00:00");
-        canvas->SwapOnVSync(frame);
+        frame = canvas->SwapOnVSync(frame);
         usleep(500*1000);
         canvas->Clear();
         usleep(500*1000);

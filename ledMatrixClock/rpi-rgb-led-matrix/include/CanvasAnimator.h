@@ -25,6 +25,7 @@ class CanvasAnimator
     private:
         RGBMatrix* canvas;
         CanvasConfig* canvasConfig;
+        FrameCanvas* frame;
         bool isRainOver(std::vector<std::vector<int>>&);
         void drawOscillo(FrameCanvas* frame, int x1, int x2);
 
