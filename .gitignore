@@ -1,2 +1,3 @@
 *.o
 ledMatrixClock/rpi-rgb-led-matrix/led-clock
+/node_modules
